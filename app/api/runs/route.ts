@@ -3,6 +3,8 @@ import { req, ORG_ID, WORKSPACE_ID, requireAutomationId, kognitosRunUrl } from "
 import { normalizeRun } from "@/lib/transforms";
 import type { RawRun } from "@/lib/types";
 
+export const dynamic = "force-dynamic";
+
 export async function GET(request: Request) {
   try {
     const AUTOMATION_ID = requireAutomationId();

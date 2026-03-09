@@ -8,6 +8,8 @@ import {
 } from "@/lib/transforms";
 import type { RawRun } from "@/lib/types";
 
+export const dynamic = "force-dynamic";
+
 export async function GET() {
   try {
     const AUTOMATION_ID = requireAutomationId();

@@ -106,6 +106,16 @@ export function normalizeRun(
 ): NormalizedRun {
   const state = getRunState(run);
   const outputs = run.state.completed?.outputs ?? {};
+  const outputKeys = Object.keys(outputs);
+
+  if (state === "completed" && outputKeys.length === 0) {
+    const runId = getRunId(run);
+    console.warn(
+      `[normalizeRun] Completed run ${runId} has no outputs — ` +
+      `the list API may not include output data. ` +
+      `State keys: ${JSON.stringify(Object.keys(run.state))}`
+    );
+  }
 
   const ppB64 = outputs.pending_patients?.table?.inline?.data;
   const esB64 = outputs.email_status?.table?.inline?.data;
