@@ -4,16 +4,20 @@ const WORKSPACE_ID = process.env.KOGNITOS_WORKSPACE_ID;
 const BASE_URL = process.env.KOGNITOS_BASE_URL;
 const AUTOMATION_ID = process.env.KOGNITOS_AUTOMATION_ID;
 
-const required = {
+const coreRequired = {
   KOGNITOS_TOKEN: TOKEN,
   KOGNITOS_ORG_ID: ORG_ID,
   KOGNITOS_WORKSPACE_ID: WORKSPACE_ID,
   KOGNITOS_BASE_URL: BASE_URL,
-  KOGNITOS_AUTOMATION_ID: AUTOMATION_ID,
 } as const;
 
-for (const [name, value] of Object.entries(required)) {
+for (const [name, value] of Object.entries(coreRequired)) {
   if (!value) throw new Error(`Missing required env var: ${name}`);
+}
+
+export function requireAutomationId(): string {
+  if (!AUTOMATION_ID) throw new Error("Missing required env var: KOGNITOS_AUTOMATION_ID");
+  return AUTOMATION_ID;
 }
 
 export { ORG_ID, WORKSPACE_ID, BASE_URL, AUTOMATION_ID };

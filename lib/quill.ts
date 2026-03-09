@@ -1,4 +1,4 @@
-import { req, ORG_ID, WORKSPACE_ID, AUTOMATION_ID } from "./kognitos";
+import { req, ORG_ID, WORKSPACE_ID, requireAutomationId } from "./kognitos";
 
 const RESOURCE_PREFIX = `organizations/${ORG_ID}/workspaces/${WORKSPACE_ID}`;
 
@@ -16,7 +16,7 @@ export interface QuillResult {
 }
 
 export async function createQuillThread(
-  automationId: string = AUTOMATION_ID!
+  automationId: string = requireAutomationId()
 ): Promise<string> {
   const res = await req(
     `/${RESOURCE_PREFIX}/agents/quill/threads`,

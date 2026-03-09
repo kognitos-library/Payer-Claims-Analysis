@@ -3,12 +3,16 @@
   "version": "1.0.0",
   "private": true,
   "scripts": {
-    "dev": "next dev",
+    "dev": "next dev --port 4002",
     "build": "next build",
     "start": "next start",
     "lint": "next lint"
   },
   "dependencies": {
+    "@anthropic-ai/sdk": "^0.39.0",
+    "@kognitos/lattice": "file:kognitos-lattice-1.18.0.tgz",
+    "@supabase/supabase-js": "^2.49.4",
+    "@tailwindcss/typography": "^0.5.16",
     "apache-arrow": "^21.1.0",
     "dayjs": "^1.11.13",
     "dotenv": "^17.3.1",
@@ -16,7 +20,9 @@
     "react": "^19.1.0",
     "react-dom": "^19.1.0",
     "react-hook-form": "^7.56.0",
-    "recharts": "^3.8.0"
+    "react-markdown": "^10.1.0",
+    "recharts": "^3.8.0",
+    "remark-gfm": "^4.0.1"
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4.1.0",
