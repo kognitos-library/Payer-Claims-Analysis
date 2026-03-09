@@ -33,7 +33,7 @@ async function main() {
       const charges: string[] = [];
       const payers: string[] = [];
       const nameCol = table.getChild("Patient Name");
-      const chargeCol = table.getChild("Total Charges");
+      const chargeCol = table.getChild("Claim Value") ?? table.getChild("Total Charges");
       const payerCol = table.getChild("Payer");
       for (let i = 0; i < table.numRows; i++) {
         patients.push(nameCol?.get(i) ?? "?");

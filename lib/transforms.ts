@@ -68,7 +68,7 @@ export function normalizePatients(b64: string): Patient[] {
     patientControlNumber: String(r["Patient Control Number"] ?? ""),
     insuredName: String(r["Insured Name"] ?? ""),
     dateOfBirth: String(r["Date of Birth"] ?? ""),
-    totalCharges: parseFloat(String(r["Total Charges"] ?? "0")) || 0,
+    totalCharges: parseFloat(String(r["Claim Value"] ?? r["Total Charges"] ?? "0")) || 0,
     payer: String(r["Payer"] ?? ""),
   }));
 }
