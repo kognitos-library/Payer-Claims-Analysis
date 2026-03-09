@@ -15,7 +15,7 @@ export async function GET() {
     const AUTOMATION_ID = requireAutomationId();
     const prefix = `/organizations/${ORG_ID}/workspaces/${WORKSPACE_ID}/automations/${AUTOMATION_ID}`;
 
-    const res = await req(`${prefix}/runs?pageSize=50`);
+    const res = await req(`${prefix}/runs?pageSize=200`);
     if (!res.ok) {
       return NextResponse.json(
         { error: `Kognitos API error: ${res.status}` },
