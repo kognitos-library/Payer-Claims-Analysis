@@ -37,6 +37,10 @@ export interface NormalizedRun {
   emailStatuses: EmailStatus[];
   claimFields: ClaimField[];
   pdfCount: number;
+  /** Charge parsed from claim_response text when pending_patients table is absent */
+  claimResponseCharge?: number;
+  /** Count of claims inferred from claim_response (e.g. 1 when a single Claim Value is found) */
+  claimResponseClaimCount?: number;
 }
 
 export interface DashboardStats {
@@ -61,6 +65,75 @@ export function getRunId(run: RawRun): string {
   return run.name.split("/").pop()!;
 }
 
+const CHARGE_COLUMN_NAMES = [
+  "Claim Value",
+  "Total Charges",
+  "Charge",
+  "Charges",
+  "Amount",
+  "Claim Amount",
+  "Total Charge",
+  "Charge Amount",
+  "Billed Amount",
+  "Value",
+  "Claim Total",
+];
+
+function getChargeFromRow(row: Record<string, unknown>): number {
+  for (const key of CHARGE_COLUMN_NAMES) {
+    const val = row[key];
+    if (val !== undefined && val !== null && val !== "") {
+      const n = parseFloat(String(val).replace(/[,$]/g, ""));
+      if (!Number.isNaN(n)) return n;
+    }
+  }
+  for (const [key, val] of Object.entries(row)) {
+    if (
+      (key.toLowerCase().includes("charge") ||
+        key.toLowerCase().includes("amount") ||
+        key.toLowerCase().includes("value")) &&
+      key !== "Patient Control Number"
+    ) {
+      const n = parseFloat(String(val).replace(/[,$]/g, ""));
+      if (!Number.isNaN(n)) return n;
+    }
+  }
+  return 0;
+}
+
+/** Parse claim_response text for "Claim Value" and return total charge and claim count */
+export function parseClaimResponseText(text: string | undefined): { charge: number; count: number } {
+  if (!text || typeof text !== "string") return { charge: 0, count: 0 };
+  const amounts: number[] = [];
+  let m: RegExpExecArray | null;
+
+  // 1) Markdown table: | **Claim Value** | $12,345.67 | or | Claim Value | $12,345.67 |
+  const tableRe = /Claim\s+Value\s*\*?\*?\s*[:\|]\s*\$?\s*([\d,]+(?:\.\d{2})?)/gi;
+  while ((m = tableRe.exec(text)) !== null) {
+    const n = parseFloat(m[1].replace(/,/g, ""));
+    if (!Number.isNaN(n)) amounts.push(n);
+  }
+  // 2) Same line: "Claim Value" somewhere then $X,XXX.XX later on the line
+  if (amounts.length === 0) {
+    const lineRe = /Claim\s+Value[^\n$]*?\$\s*([\d,]+(?:\.\d{2})?)/gi;
+    while ((m = lineRe.exec(text)) !== null) {
+      const n = parseFloat(m[1].replace(/,/g, ""));
+      if (!Number.isNaN(n)) amounts.push(n);
+    }
+  }
+  // 3) Label: value on next line or after colon
+  if (amounts.length === 0) {
+    const labelRe = /Claim\s+Value\s*[:\s]+\$?\s*([\d,]+(?:\.\d{2})?)/gi;
+    while ((m = labelRe.exec(text)) !== null) {
+      const n = parseFloat(m[1].replace(/,/g, ""));
+      if (!Number.isNaN(n)) amounts.push(n);
+    }
+  }
+
+  const total = amounts.length ? amounts.reduce((a, b) => a + b, 0) : 0;
+  return { charge: total, count: amounts.length || (total > 0 ? 1 : 0) };
+}
+
 export function normalizePatients(b64: string): Patient[] {
   const rows = decodeArrowTable(b64);
   return rows.map((r) => ({
@@ -69,7 +142,7 @@ export function normalizePatients(b64: string): Patient[] {
     patientControlNumber: String(r["Patient Control Number"] ?? ""),
     insuredName: String(r["Insured Name"] ?? ""),
     dateOfBirth: String(r["Date of Birth"] ?? ""),
-    totalCharges: parseFloat(String(r["Claim Value"] ?? r["Total Charges"] ?? "0")) || 0,
+    totalCharges: getChargeFromRow(r),
     payer: String(r["Payer"] ?? ""),
   }));
 }
@@ -124,6 +197,25 @@ export function normalizeRun(
 
   const pdfItems = (outputs.completed_pdfs as any)?.list?.items ?? [];
 
+  const claimResponseOut = outputs.claim_response as { text?: string; string?: { text?: string } } | undefined;
+  const claimResponseText = claimResponseOut?.text ?? claimResponseOut?.string?.text ?? undefined;
+  const { charge: claimResponseCharge, count: claimResponseClaimCount } = parseClaimResponseText(claimResponseText);
+
+  let patients = ppB64 ? normalizePatients(ppB64) : [];
+  if (patients.length === 0 && claimResponseCharge > 0) {
+    patients = [
+      {
+        patientName: "—",
+        admissionDate: "",
+        patientControlNumber: "",
+        insuredName: "",
+        dateOfBirth: "",
+        totalCharges: claimResponseCharge,
+        payer: "",
+      },
+    ];
+  }
+
   return {
     id: getRunId(run),
     state,
@@ -131,10 +223,12 @@ export function normalizeRun(
     updatedAt: run.update_time ?? null,
     kognitosUrl,
     emailRecipient: run.user_inputs?.["Email Recipient"]?.text ?? null,
-    patients: ppB64 ? normalizePatients(ppB64) : [],
+    patients,
     emailStatuses: esB64 ? normalizeEmailStatuses(esB64) : [],
     claimFields: csB64 ? normalizeClaimFields(csB64) : [],
     pdfCount: pdfItems.length,
+    ...(claimResponseCharge > 0 && { claimResponseCharge }),
+    ...(claimResponseClaimCount > 0 && { claimResponseClaimCount }),
   };
 }
 

@@ -8,6 +8,8 @@ export type RunState =
 
 export interface RunOutput {
   table?: { inline?: { data?: string } };
+  text?: string;
+  string?: { text?: string };
 }
 
 export interface RawRun {
