@@ -49,6 +49,7 @@ export interface DashboardStats {
   totalPatients: number;
   totalCharges: number;
   uniquePayers: string[];
+  claimsReceivedVsLastWeekPct: number | null;
 }
 
 export function getRunState(run: RawRun): RunState {
@@ -143,17 +144,32 @@ export function computeDashboardStats(runs: NormalizedRun[]): DashboardStats {
   let totalCharges = 0;
   const payerSet = new Set<string>();
 
+  const now = dayjs();
+  const weekStart = now.subtract(7, "day");
+  const twoWeeksStart = now.subtract(14, "day");
+  let thisWeekPatients = 0;
+  let lastWeekPatients = 0;
+
   for (const run of runs) {
     stateCounts[run.state] = (stateCounts[run.state] || 0) + 1;
-    totalPatients += run.patients.length;
+    const count = run.patients.length;
+    totalPatients += count;
     for (const p of run.patients) {
       totalCharges += p.totalCharges;
       if (p.payer) payerSet.add(p.payer);
     }
+    const runDate = dayjs(run.createdAt);
+    if (runDate.isAfter(weekStart)) thisWeekPatients += count;
+    else if (runDate.isAfter(twoWeeksStart)) lastWeekPatients += count;
   }
 
   const completed = stateCounts["completed"] || 0;
   const total = runs.length;
+
+  const claimsReceivedVsLastWeekPct =
+    lastWeekPatients > 0
+      ? ((thisWeekPatients - lastWeekPatients) / lastWeekPatients) * 100
+      : null;
 
   return {
     totalBatches: total,
@@ -165,6 +181,7 @@ export function computeDashboardStats(runs: NormalizedRun[]): DashboardStats {
     totalPatients,
     totalCharges,
     uniquePayers: Array.from(payerSet).sort(),
+    claimsReceivedVsLastWeekPct,
   };
 }
 

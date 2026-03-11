@@ -10,6 +10,8 @@ import type { RawRun } from "@/lib/types";
 
 export const dynamic = "force-dynamic";
 
+const MAX_RUNS_TO_FETCH_FULL = 50;
+
 export async function GET() {
   try {
     const AUTOMATION_ID = requireAutomationId();
@@ -26,9 +28,26 @@ export async function GET() {
     const data = await res.json();
     const rawRuns: RawRun[] = data.runs ?? [];
 
+    const completedRunIds = rawRuns
+      .filter((r) => r.state?.completed != null)
+      .map((r) => r.name.split("/").pop()!)
+      .slice(0, MAX_RUNS_TO_FETCH_FULL);
+
+    const fullRunsById = new Map<string, RawRun>();
+    await Promise.all(
+      completedRunIds.map(async (runId) => {
+        const detailRes = await req(`${prefix}/runs/${runId}`);
+        if (detailRes.ok) {
+          const fullRun: RawRun = await detailRes.json();
+          fullRunsById.set(runId, fullRun);
+        }
+      })
+    );
+
     const runs = rawRuns.map((r) => {
       const runId = r.name.split("/").pop()!;
-      return normalizeRun(r, kognitosRunUrl(runId));
+      const runToNormalize = fullRunsById.get(runId) ?? r;
+      return normalizeRun(runToNormalize, kognitosRunUrl(runId));
     });
 
     return NextResponse.json({
