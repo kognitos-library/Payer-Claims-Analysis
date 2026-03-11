@@ -174,6 +174,20 @@ export function normalizeClaimFields(b64: string): ClaimField[] {
   }));
 }
 
+/** Parse claims_summary table: extract Claim Value per row and return as Patient[] for dashboard/charges. */
+function normalizeClaimsSummary(b64: string): Patient[] {
+  const rows = decodeArrowTable(b64);
+  return rows.map((r) => ({
+    patientName: String(r["Patient Name"] ?? r["PatientName"] ?? "—"),
+    admissionDate: String(r["Admission Date"] ?? r["AdmissionDate"] ?? ""),
+    patientControlNumber: String(r["Patient Control Number"] ?? r["PatientControlNumber"] ?? ""),
+    insuredName: String(r["Insured Name"] ?? r["InsuredName"] ?? ""),
+    dateOfBirth: String(r["Date of Birth"] ?? r["DateOfBirth"] ?? ""),
+    totalCharges: getChargeFromRow(r),
+    payer: String(r["Payer"] ?? ""),
+  }));
+}
+
 export function normalizeRun(
   run: RawRun,
   kognitosUrl: string
@@ -192,6 +206,8 @@ export function normalizeRun(
   }
 
   const ppB64 = outputs.pending_patients?.table?.inline?.data;
+  const out = outputs as Record<string, { table?: { inline?: { data?: string } } } | undefined>;
+  const claimsSummaryB64 = out.claims_summary?.table?.inline?.data ?? out["claims summary"]?.table?.inline?.data;
   const esB64 = outputs.email_status?.table?.inline?.data;
   const csB64 = outputs.claims_submitted?.table?.inline?.data;
 
@@ -202,6 +218,9 @@ export function normalizeRun(
   const { charge: claimResponseCharge, count: claimResponseClaimCount } = parseClaimResponseText(claimResponseText);
 
   let patients = ppB64 ? normalizePatients(ppB64) : [];
+  if (patients.length === 0 && typeof claimsSummaryB64 === "string") {
+    patients = normalizeClaimsSummary(claimsSummaryB64);
+  }
   if (patients.length === 0 && claimResponseCharge > 0) {
     patients = [
       {
