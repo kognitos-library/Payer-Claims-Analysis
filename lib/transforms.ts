@@ -54,6 +54,14 @@ export interface DashboardStats {
   totalCharges: number;
   uniquePayers: string[];
   claimsReceivedVsLastWeekPct: number | null;
+  /** High-risk claims total charges (e.g. from flagged claims). */
+  highRiskCharges?: number;
+  /** Number of claims flagged as high-risk. */
+  highRiskClaimCount?: number;
+  /** Average adjudication cycle time in days. */
+  adjudicationCycleDays?: number | null;
+  /** Percent change in cycle time vs prior period (e.g. this month). */
+  adjudicationCycleChangePct?: number | null;
 }
 
 export function getRunState(run: RawRun): RunState {
@@ -295,6 +303,10 @@ export function computeDashboardStats(runs: NormalizedRun[]): DashboardStats {
     totalCharges,
     uniquePayers: Array.from(payerSet).sort(),
     claimsReceivedVsLastWeekPct,
+    highRiskCharges: 0,
+    highRiskClaimCount: 0,
+    adjudicationCycleDays: null,
+    adjudicationCycleChangePct: null,
   };
 }
 
@@ -303,6 +315,10 @@ export interface TrendPoint {
   batches: number;
   patients: number;
   charges: number;
+  /** Total charges received (same as charges). */
+  claimsReceived: number;
+  /** Total claims paid (placeholder until paid data is available). */
+  claimsPaid: number;
 }
 
 export function computeTrend(runs: NormalizedRun[]): TrendPoint[] {
@@ -311,14 +327,26 @@ export function computeTrend(runs: NormalizedRun[]): TrendPoint[] {
   for (const run of runs) {
     if (run.state !== "completed") continue;
     const date = dayjs(run.createdAt).format("MMM D");
-    const existing = byDate.get(date) || { date, batches: 0, patients: 0, charges: 0 };
+    const runCharges = run.patients.reduce((s, p) => s + p.totalCharges, 0);
+    const existing = byDate.get(date) || {
+      date,
+      batches: 0,
+      patients: 0,
+      charges: 0,
+      claimsReceived: 0,
+      claimsPaid: 0,
+    };
     existing.batches += 1;
     existing.patients += run.patients.length;
-    existing.charges += run.patients.reduce((s, p) => s + p.totalCharges, 0);
+    existing.charges += runCharges;
+    existing.claimsReceived += runCharges;
+    existing.claimsPaid += runCharges * 0.85; // placeholder: 85% of received until paid data exists
     byDate.set(date, existing);
   }
 
-  return Array.from(byDate.values());
+  return Array.from(byDate.values()).sort(
+    (a, b) => new Date(a.date).getTime() - new Date(b.date).getTime()
+  );
 }
 
 export interface PayerBreakdown {
