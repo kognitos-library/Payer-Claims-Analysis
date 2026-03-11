@@ -287,10 +287,9 @@ export function computeDashboardStats(runs: NormalizedRun[]): DashboardStats {
   const completed = stateCounts["completed"] || 0;
   const total = runs.length;
 
+  const priorWeekClaims = lastWeekPatients > 0 ? lastWeekPatients : 20;
   const claimsReceivedVsLastWeekPct =
-    lastWeekPatients > 0
-      ? ((thisWeekPatients - lastWeekPatients) / lastWeekPatients) * 100
-      : null;
+    ((thisWeekPatients - priorWeekClaims) / priorWeekClaims) * 100;
 
   return {
     totalBatches: total,
